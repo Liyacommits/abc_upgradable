@@ -1,8 +1,27 @@
-# upgradable
+# ABC Upgradable Smart Contracts
 
 > Scaffolded with [abc-scaffold](https://github.com/africas-blockchain-club/abc-scaffold) by **Africa's Blockchain Club**
 
-A project-agnostic Hardhat workspace ready for smart contract development, testing, and frontend integration. Build anything — NFTs, DeFi protocols, DAOs, smart accounts, or any on-chain application.
+An implementation of **UUPS (Universal Upgradeable Proxy Standard)** upgradeable smart contracts built with Hardhat, OpenZeppelin Upgrades, and a React + Vite frontend.
+
+---
+
+## Overview
+
+This project demonstrates deploying, upgrading, and interacting with an upgradeable smart contract using OpenZeppelin's `UUPSUpgradeable` and `OwnableUpgradeable`:
+
+- **`MyContract` (V1)** — Initializes a `uint256 public value` and ownership via `initialize(uint256 initialValue)`, provides an owner-restricted `setValue(uint256 newValue)`, and restricts proxy upgrades to the contract owner via `_authorizeUpgrade`.
+- **`MyContractV2` (V2)** — Inherits from `MyContract` while preserving storage layout and adds `incrementValue()` to increment `value` by `1`.
+
+---
+
+## Sepolia Testnet Deployment
+
+| Contract | Address |
+|----------|---------|
+| **UUPS Proxy** | [`0xC5ABb714f5E0032b7360f31d5f35d289c4Cd4F8f`](https://sepolia.etherscan.io/address/0xC5ABb714f5E0032b7360f31d5f35d289c4Cd4F8f) |
+| **MyContract (V1 Implementation)** | [`0x7CF5B55798397c1209afe6795f520Bb941FdB393`](https://sepolia.etherscan.io/address/0x7CF5B55798397c1209afe6795f520Bb941FdB393) |
+| **MyContractV2 (V2 Implementation)** | [`0x4E2A31F4129f2b253CAB9a0F0d6A326785a9b75E`](https://sepolia.etherscan.io/address/0x4E2A31F4129f2b253CAB9a0F0d6A326785a9b75E) |
 
 ---
 
@@ -11,7 +30,7 @@ A project-agnostic Hardhat workspace ready for smart contract development, testi
 | Tool | Version |
 |------|---------|
 | Node.js | >= 18.0.0 |
-| npm | >= 9.0.0 |
+| pnpm / npm | >= 9.0.0 |
 | MetaMask | Latest |
 
 ---
@@ -21,7 +40,7 @@ A project-agnostic Hardhat workspace ready for smart contract development, testi
 ### 1. Install dependencies
 
 ```bash
-npm install
+pnpm install
 ```
 
 ### 2. Set up environment variables
@@ -32,9 +51,9 @@ cp .env.example .env
 
 Fill in your values in `.env`:
 
-- `SEPOLIA_RPC_URL` — get one free from [Infura](https://infura.io) or [Alchemy](https://alchemy.com)
-- `PRIVATE_KEY` — your deployer wallet private key (**never commit this file**)
-- `ETHERSCAN_API_KEY` — for contract verification on [Etherscan](https://etherscan.io)
+- `SEPOLIA_RPC_URL` — Sepolia RPC endpoint (e.g. from [Infura](https://infura.io) or [Alchemy](https://alchemy.com))
+- `PRIVATE_KEY` — Deployer wallet private key (**never commit `.env`**)
+- `ETHERSCAN_API_KEY` — API key for contract verification on [Etherscan](https://etherscan.io)
 
 ### 3. Compile contracts
 
@@ -48,24 +67,48 @@ npx hardhat compile
 npx hardhat test
 ```
 
-### 5. Deploy contracts locally
+---
 
-Open two terminals:
+## Deploying, Upgrading & Interacting
+
+### 1. Deploy V1 Proxy (`MyContract`)
+
+Deploys the `MyContract` implementation and UUPS proxy initialized with `10`:
 
 ```bash
-# Terminal 1 — start a local node
-npx hardhat node
+# Local network
+npx hardhat run scripts/deploy.cjs --network localhost
 
-# Terminal 2 — deploy your contracts
-npx hardhat run scripts/deploy.js --network localhost
+# Sepolia testnet
+npx hardhat run scripts/deploy.cjs --network sepolia
 ```
 
-### 6. Start the frontend
+### 2. Upgrade Proxy to V2 (`MyContractV2`)
+
+Upgrades the existing proxy at `PROXY_ADDRESS` in `scripts/upgrade.cjs` to `MyContractV2`:
+
+```bash
+npx hardhat run scripts/upgrade.cjs --network sepolia
+```
+
+### 3. Interact with the Upgraded Proxy
+
+Calls `incrementValue()` on the proxy and logs the updated `value`:
+
+```bash
+npx hardhat run scripts/interact.cjs --network sepolia
+```
+
+---
+
+## Frontend
+
+Start the Vite + React development server:
 
 ```bash
 cd frontend
-npm install
-npm run dev
+pnpm install
+pnpm run dev
 # → http://localhost:5173
 ```
 
@@ -73,150 +116,59 @@ npm run dev
 
 ## Directory Structure
 
-```
+```text
 upgradable/
-├── contracts/          # Solidity smart contracts
-├── scripts/            # Deployment and utility scripts
-├── test/               # Hardhat test files
-├── frontend/           # React + Vite frontend
+├── .openzeppelin/
+│   └── sepolia.json          # OpenZeppelin network manifest (proxy & implementation layouts)
+├── contracts/
+│   ├── MyContract.sol        # V1 UUPS upgradeable smart contract
+│   └── MyContractV2.sol      # V2 upgraded implementation adding incrementValue()
+├── scripts/
+│   ├── deploy.cjs            # Deploys MyContract behind a UUPS proxy
+│   ├── upgrade.cjs           # Upgrades the UUPS proxy to MyContractV2
+│   └── interact.cjs          # Calls incrementValue() and reads state from the proxy
+├── test/
+│   └── MyContract.test.js    # Contract unit tests
+├── frontend/                 # React + Vite frontend with MetaMask wallet connection
 │   └── src/
 │       ├── App.jsx
 │       └── components/
-│           └── Navbar.jsx   ← Connect Wallet button lives here
-├── hardhat.config.js   # Hardhat configuration
-├── .env.example        # Environment variable template
+│           └── Navbar.jsx
+├── hardhat.config.js         # Hardhat configuration (Solidity 0.8.26, OpenZeppelin Upgrades)
+├── .env.example              # Environment variable template
 └── README.md
 ```
 
 ---
 
-## Writing Smart Contracts
-
-Place your Solidity files in `contracts/`. The config targets Solidity `0.8.26` with the Cancun EVM and the optimizer enabled (200 runs).
-
-**Example** — `contracts/MyContract.sol`:
-
-```solidity
-// SPDX-License-Identifier: MIT
-pragma solidity ^0.8.26;
-
-contract MyContract {
-    // Your logic here
-}
-```
-
-### Included libraries
+## Included Libraries
 
 | Package | Use case |
 |---------|----------|
-| `@openzeppelin/contracts` | ERC-20, ERC-721, ERC-1155, access control, etc. |
-| `@openzeppelin/contracts-upgradeable` | UUPS / Transparent proxy upgradeable variants |
-| `@openzeppelin/hardhat-upgrades` | Deploy and upgrade helper tasks |
+| `@openzeppelin/contracts` | Standard smart contract building blocks |
+| `@openzeppelin/contracts-upgradeable` | Upgradeable variants (`UUPSUpgradeable`, `OwnableUpgradeable`) |
+| `@openzeppelin/hardhat-upgrades` | Hardhat plugin for deploying and upgrading proxies (`deployProxy`, `upgradeProxy`) |
 | `@account-abstraction/contracts` | ERC-4337 interfaces and EntryPoint |
-
----
-
-## Writing Tests
-
-Place test files in `test/`. Hardhat ships with Mocha + Chai.
-
-**Example** — `test/MyContract.test.js`:
-
-```javascript
-const { expect } = require('chai');
-const { ethers } = require('hardhat');
-
-describe('MyContract', function () {
-  it('should deploy successfully', async function () {
-    const MyContract = await ethers.getContractFactory('MyContract');
-    const contract = await MyContract.deploy();
-    expect(await contract.getAddress()).to.not.equal(ethers.ZeroAddress);
-  });
-});
-```
-
----
-
-## Writing Deployment Scripts
-
-**Example** — `scripts/deploy.js`:
-
-```javascript
-const { ethers } = require('hardhat');
-
-async function main() {
-  const [deployer] = await ethers.getSigners();
-  console.log('Deploying from:', deployer.address);
-
-  const MyContract = await ethers.getContractFactory('MyContract');
-  const contract = await MyContract.deploy();
-  await contract.waitForDeployment();
-
-  console.log('MyContract deployed to:', await contract.getAddress());
-}
-
-main().catch((err) => {
-  console.error(err);
-  process.exitCode = 1;
-});
-```
-
----
-
-## Networks
-
-| Network | RPC | Chain ID |
-|---------|-----|----------|
-| Hardhat (local) | `http://127.0.0.1:8545` | 31337 |
-| Sepolia (testnet) | `SEPOLIA_RPC_URL` in `.env` | 11155111 |
+| `ethers` (v6) | Ethereum library for scripts, tests, and frontend |
 
 ---
 
 ## Verifying Contracts
 
 ```bash
-npx hardhat verify --network sepolia <CONTRACT_ADDRESS> <CONSTRUCTOR_ARGS>
-```
-
----
-
-## Frontend
-
-The `frontend/` folder is a Vite + React app with:
-
-- A sticky navigation bar with a **Connect Wallet** button (MetaMask / EIP-1193)
-- Ethers.js v6 already wired up
-
-### Connecting to a deployed contract
-
-Copy the ABI from `artifacts/contracts/YourContract.sol/YourContract.json` and import it:
-
-```javascript
-import { BrowserProvider, Contract } from 'ethers';
-import MyContractABI from '../../artifacts/contracts/MyContract.sol/MyContract.json';
-
-const CONTRACT_ADDRESS = '0x...';
-
-async function interact() {
-  const provider = new BrowserProvider(window.ethereum);
-  const signer   = await provider.getSigner();
-  const contract = new Contract(CONTRACT_ADDRESS, MyContractABI.abi, signer);
-  // call contract methods here
-}
+npx hardhat verify --network sepolia <CONTRACT_ADDRESS>
 ```
 
 ---
 
 ## Resources
 
+- [OpenZeppelin Upgrades Plugins](https://docs.openzeppelin.com/upgrades-plugins/1.x/)
+- [UUPS Proxies Guide](https://docs.openzeppelin.com/contracts/5.x/api/proxy#UUPSUpgradeable)
 - [Hardhat Docs](https://hardhat.org/docs)
 - [Solidity Docs](https://docs.soliditylang.org)
-- [OpenZeppelin Docs](https://docs.openzeppelin.com)
-- [EIP-4337 (Account Abstraction)](https://eips.ethereum.org/EIPS/eip-4337)
 - [Ethers.js v6 Docs](https://docs.ethers.org/v6)
-- [Vite Docs](https://vitejs.dev)
 
 ---
 
 *Built with Africa's Blockchain Club — scaffold your next project with `npx abc-scaffold`.*
-# abc_upgradable
